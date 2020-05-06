@@ -48,7 +48,8 @@ def row_is_empty(data, row, data_sets):
             return False
     return True
 
-def polynomial_bg_fit(data, data_sets, deg):
+# Polynomial background fit
+def bg_fit(data, data_sets, deg):
     fit = []
     for i in range(3, data_sets + 3):
         try:
@@ -57,7 +58,7 @@ def polynomial_bg_fit(data, data_sets, deg):
             fit.append(None)
     return fit
 
-def polynomial_bg_filter(data, data_sets, fit):
+def bg_filter(data, data_sets, fit):
     for i in range(len(data)):
         for j in range(3, data_sets + 3):
             if data[i][j] is not None and fit[j - 3] is not None:
@@ -66,10 +67,6 @@ def polynomial_bg_filter(data, data_sets, fit):
 def median_filter(data, k):
     for i in range(len(data)):
         data[i] = sp.signal.medfilt(data[i], k)
-
-def func(t, A, B):
-    w = 2 * np.pi / (12 * 4)
-    return A * np.sin(w * t) + B * np.cos(w * t)
 
 def residual_fit(data, data_sets):
     fit = []
@@ -82,8 +79,12 @@ def residual_filter(data, data_sets, fit):
     for i in range(len(data)):
         for j in range(data_sets):
             data[i][j] -= func(j, fit[i][0][0], fit[i][0][1])
+            
+def func(t, A, B):
+    w = 2 * np.pi / (12 * 4)
+    return A * np.sin(w * t) + B * np.cos(w * t)
 
-def create_interpolation_function(data, data_sets):
+def linear_interpolation(data, data_sets):
     interpolation = []
     for i in range(3, data_sets + 3):
         try:
@@ -101,6 +102,12 @@ def reconstruct_data(altitudes, data_interpolation, data_sets):
             row.append(float(data_interpolation[j](altitudes[i])))
         reconstructed_data.append(row)
     return reconstructed_data
+
+def fast_fourier_transform(data):
+    fft = []
+    for i in data:
+        fft.append(np.fft.ftt(i))
+    return i
 
 def get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation, data_sets):
     magnitude = []
