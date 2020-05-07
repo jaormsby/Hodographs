@@ -2,6 +2,7 @@ import src.data_tools as dt
 
 import math
 import matplotlib.pyplot as plt
+import metpy.plots as metplt
 import numpy as np
 import numpy.linalg
 import scipy as sp
@@ -72,45 +73,18 @@ temperature_resid = dt.residual_fit(temperature, data_sets)
 north_wind_resid = dt.residual_fit(north_wind, data_sets)
 east_wind_resid = dt.residual_fit(east_wind, data_sets)
 
-temperature_fft = dt.fast_fourier_transform(temperature)
-
-freq = 1/900
-fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
-
-for i in range(len(temperature_fft)):
-    normalized = abs(temperature_fft[i][0:int(data_sets/2)])
-
-    plt.plot(1/fr, normalized)
-    plt.show()
-
 # Subtract residual fit from data at each altitude
-dt.residual_filter(temperature, data_sets, temperature_resid)
+# dt.residual_filter(temperature, data_sets, temperature_resid)
 
-# Apply Fast Fourier Transform to data
+# Apply FFT to data
 temperature_fft = dt.fast_fourier_transform(temperature)
 
+# Plot and show FFT
 freq = 1/900
-fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
-
-for i in range(len(temperature_fft)):
-    normalized = abs(temperature_fft[i][0:int(data_sets/2)])
-
-    plt.plot(1/fr, normalized)
-    plt.show()
+#dt.graph_fft(temperature_fft, data_sets, freq)
 
 # Find Planar Wind
 planar_wind_magnitude, planar_wind_direction = dt.get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation, data_sets)
-
-#print(planar_wind_magnitude)
-
-#for i in range(len(temperature_interpolation)):
-#    print(temperature_interpolation[i](95.0))
-
-# Reconstruct temperature data
-#temperature = dt.reconstruct_data(altitudes, temperature_interpolation, data_sets)
-
-# Filter temperature data to mitigate outliers
-#temperature = dt.median_filter(temperature, 3)
 
 #for i in range(len(planar_wind_magnitude)):
 #    for j in range(len(planar_wind_magnitude[i])):
@@ -119,24 +93,16 @@ planar_wind_magnitude, planar_wind_direction = dt.get_planar_wind(altitudes, nor
 #        print(planar_wind_direction[i][j], end="")
 #        print("degrees E of N")
 
-for i in range(len(temperature)):
+for i in range(len(altitudes)):
     temp = []
     fit1 = []
     for j in range(data_sets):
         temp.append(temperature[i][j])
         fit1.append(dt.func(j, temperature_resid[i][0][0], temperature_resid[i][0][1]))
 
-    time = list(range(data_sets)) * time_interval
-    for i in range(len(time)):
-        time[i] *= time_interval
-
-    #plt.plot(time, cos_fit(temp, params[0], params[1]))
-    #newtemp = []
-    #for k in temp:
-    #    newtemp.append(cos_fit(k, params[0], params[1]))
-    #plt.plot((temp, newtemp),
-    #     label='Fitted function')
-#    time = range(1, 1 + len(temp))
+    time = list(range(data_sets))
+    for j in range(len(time)):
+        time[j] *= time_interval
 
     fig, ax = plt.subplots()
     plt.plot(time, fit1)
@@ -153,3 +119,10 @@ for i in range(len(temperature)):
         if n % every_nth != 0:
             label.set_visible(False)
     plt.show()
+
+
+for i in range(len(altitudes)):
+    hodograph = metplt.Hodograph(component_range=25)
+    hodograph.add_grid(increment=2.5)
+    print("Hodograph for wind at " + str(altitudes[i]) + " km")
+    plt.show(hodograph.plot(east_wind[i], north_wind[i]))

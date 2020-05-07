@@ -1,5 +1,6 @@
 import math
 import matplotlib.pyplot as plt
+import metpy.plots as metplt
 import numpy as np
 import numpy.linalg
 import scipy as sp
@@ -31,7 +32,8 @@ def extract_data(filename):
 def scale_data(data, scale):
     for i in range(0, len(data)):
         for j in range(1, len(data[i])):
-            data[i][j] *= scale
+            if data[i][j] is not None:
+                data[i][j] *= scale
 
 def remove_bad_data(data, error, data_sets):
     for i in range(len(data) - 1, -1, -1):
@@ -106,8 +108,20 @@ def reconstruct_data(altitudes, data_interpolation, data_sets):
 def fast_fourier_transform(data):
     fft = []
     for i in data:
-        fft.append(np.fft.ftt(i))
-    return i
+        fft.append(np.fft.fft(i))
+    return fft
+
+def graph_fft(fft, data_sets, freq):
+    fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
+    for i in range(len(fr)):
+        if fr[i] is not 0:
+            fr[i] = 1 / fr[i]
+
+    for i in range(len(fft)):
+        normalized = abs(fft[i][0:int(data_sets/2)])
+
+        plt.plot(fr, normalized)
+        plt.show()
 
 def get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation, data_sets):
     magnitude = []
