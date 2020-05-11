@@ -22,8 +22,13 @@ assert dt.get_num_data_sets_t(temperature) == dt.get_num_data_sets_w(north_wind)
 # Manually enter time interval (in hours)
 time_interval = 0.25
 
+# Generate time axis
+time_axis = dt.generate_time_axis(time_interval, data_sets)
+print(len(time_axis))
+print(time_axis)
+
 # Generate list of altitudes of interest
-min, max, step = 85.0, 85.0, 1.0   
+min, max, step = 85.0, 105.0, 1.0   
 altitudes = dt.generate_altitudes_list(min, max, step)
 
 # Initialize data set size trackers
@@ -68,20 +73,79 @@ dt.median_filter(temperature, 3)
 dt.median_filter(north_wind, 3)
 dt.median_filter(east_wind, 3)
 
-# Apply sin/cos residual fit
-temperature_resid = dt.residual_fit(temperature, data_sets)
-north_wind_resid = dt.residual_fit(north_wind, data_sets)
-east_wind_resid = dt.residual_fit(east_wind, data_sets)
+## Apply FFT to data
+#temperature_fft = dt.fast_fourier_transform(temperature)
+#north_wind_fft = dt.fast_fourier_transform(north_wind)
+#east_wind_fft = dt.fast_fourier_transform(east_wind)
+
+## Graph FFTs
+#freq = 1/900
+##dt.graph_fft(temperature_fft, data_sets, freq)
+##dt.graph_fft(north_wind_fft, data_sets, freq)
+##dt.graph_fft(east_wind_fft, data_sets, freq)
+
+## Save FFT graphs
+#dt.save_fft(temperature_fft, altitudes, data_sets, freq, type="Temperature", time="_before")
+#dt.save_fft(north_wind_fft, altitudes, data_sets, freq, type="North_Wind", time="_before")
+#dt.save_fft(east_wind_fft, altitudes, data_sets, freq, type="East_Wind", time="_before")
+
+# Apply sin/cos residual fit to find first residual
+temperature_resid_1 = dt.residual_fit(temperature, data_sets)
+north_wind_resid_1 = dt.residual_fit(north_wind, data_sets)
+east_wind_resid_1 = dt.residual_fit(east_wind, data_sets)
+
+#for i in north_wind_resid_1:
+#    print(i)
+
+#fit1 = []
+#for j in range(data_sets):
+#    fit1.append(dt.func(j, north_wind_resid_1[0][0][0], north_wind_resid_1[0][0][1]))
+
+#time = list(range(data_sets))
+#for i in range(len(time)):
+#    time[i] *= time_interval
+#for i in range(len(altitudes)):
+#    fig, ax = plt.subplots()
+#    plt.scatter(time, north_wind[i])
+#    plt.plot(time, fit1)
+#    plt.show()
 
 # Subtract residual fit from data at each altitude
-# dt.residual_filter(temperature, data_sets, temperature_resid)
+dt.residual_filter(temperature, temperature_resid_1, data_sets)
+dt.residual_filter(north_wind, north_wind_resid_1, data_sets)
+dt.residual_filter(east_wind, east_wind_resid_1, data_sets)
+
+# Apply sin/cos residual fit to find second residual
+temperature_resid_2 = dt.residual_fit(temperature, data_sets)
+north_wind_resid_2 = dt.residual_fit(north_wind, data_sets)
+east_wind_resid_2 = dt.residual_fit(east_wind, data_sets)
 
 # Apply FFT to data
 temperature_fft = dt.fast_fourier_transform(temperature)
+north_wind_fft = dt.fast_fourier_transform(north_wind)
+east_wind_fft = dt.fast_fourier_transform(east_wind)
 
-# Plot and show FFT
+for i in range(len(temperature_fft)):
+    print(abs(temperature_fft[i][0:int(data_sets/2)]))
+    print(temperature_fft[i][0:int(data_sets/2)])
+
+
+# Graph FFTs
 freq = 1/900
 #dt.graph_fft(temperature_fft, data_sets, freq)
+#dt.graph_fft(north_wind_fft, data_sets, freq)
+#dt.graph_fft(east_wind_fft, data_sets, freq)
+
+# Save FFT graphs
+# dt.save_fft(temperature_fft, altitudes, data_sets, freq, type="Temperature", time="_after")
+# dt.save_fft(north_wind_fft, altitudes, data_sets, freq, type="North_Wind", time="_after")
+# dt.save_fft(east_wind_fft, altitudes, data_sets, freq, type="East_Wind", time="_after")
+
+# Graph wind hodographs
+# dt.display_hodograph(east_wind, north_wind, altitudes)
+
+# Save wind hodographs
+# dt.save_hodograph(east_wind, north_wind, altitudes, type="Wind")
 
 # Find Planar Wind
 planar_wind_magnitude, planar_wind_direction = dt.get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation, data_sets)
@@ -93,36 +157,45 @@ planar_wind_magnitude, planar_wind_direction = dt.get_planar_wind(altitudes, nor
 #        print(planar_wind_direction[i][j], end="")
 #        print("degrees E of N")
 
+
+#        #fit1.append(dt.func(j, temperature_resid[i][0][0], temperature_resid[i][0][1]))
+
+new_north = []
+new_east = []
+
 for i in range(len(altitudes)):
-    temp = []
-    fit1 = []
+    nn = []
+    ne = []
     for j in range(data_sets):
-        temp.append(temperature[i][j])
-        fit1.append(dt.func(j, temperature_resid[i][0][0], temperature_resid[i][0][1]))
+        nn.append(dt.func(j, north_wind_resid_1[i][0][0], north_wind_resid_1[i][0][1]))
+        ne.append(dt.func(j, east_wind_resid_1[i][0][0], east_wind_resid_1[i][0][1]))
+    new_north.append(nn)
+    new_east.append(ne)
 
-    time = list(range(data_sets))
-    for j in range(len(time)):
-        time[j] *= time_interval
+for i in range(len(new_north)):
+    print(new_north[i])
+    print(north_wind[i])
+for i in range(len(new_east)):
+    print(new_east[i])
+    [print(east_wind[i])]
+dt.save_hodograph(new_east, new_north, altitudes, type="Wind2")
 
+time = list(range(data_sets))
+for i in range(len(time)):
+    time[i] *= time_interval
+for i in range(len(altitudes)):
     fig, ax = plt.subplots()
-    plt.plot(time, fit1)
-    plt.scatter(time, temp, 25)
-    plt.title("Temperature at " + str(altitudes[i]) + "km")
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Temperature Perturbation (K)")
-    #plt.gca().invert_yaxis()
-    every_nth = 1
-    for n, label in enumerate(ax.xaxis.get_ticklabels()):
-        if n % every_nth != 0:
-            label.set_visible(False)
-    for n, label in enumerate(ax.yaxis.get_ticklabels()):
-        if n % every_nth != 0:
-            label.set_visible(False)
+    plt.scatter(time, north_wind[i])
+    plt.plot(time, new_north)
+    plt.show()
+    plt.close()
+    fig, ax = plt.subplots()
+    plt.scatter(time, east_wind[i])
+    plt.plot(time, new_east)
     plt.show()
 
-
-for i in range(len(altitudes)):
-    hodograph = metplt.Hodograph(component_range=25)
-    hodograph.add_grid(increment=2.5)
-    print("Hodograph for wind at " + str(altitudes[i]) + " km")
-    plt.show(hodograph.plot(east_wind[i], north_wind[i]))
+#for i in range(len(altitudes)):
+#    hodograph = metplt.Hodograph(component_range=15)
+#    hodograph.add_grid(increment=1.5)
+#    print("Hodograph for wind at " + str(altitudes[i]) + " km")
+#    plt.show(hodograph.plot(new_east[i], new_north[i]))

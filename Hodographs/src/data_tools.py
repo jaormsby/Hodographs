@@ -20,14 +20,25 @@ def extract_data(filename):
                     values[i].strip('\n')
                     values[i].strip('\t')
                 data.append(values)
-
     del data[0]
-
     for i in range(len(data)):
         for j in range(len(data[i])):
             data[i][j] = float(data[i][j])
-
     return data
+
+def get_num_data_sets_t(data):
+    return int((len(data[0]) - 5) / 3)
+
+def get_num_data_sets_w(data):
+    return int((len(data[0]) - 4) / 2)
+
+def generate_time_axis(time_interval, data_sets):
+    time = list(range(data_sets))
+    print(len(time))
+    for i in range(len(time)):
+        time[i] *= time_interval
+    print(len(time))
+    return time
 
 def scale_data(data, scale):
     for i in range(0, len(data)):
@@ -43,12 +54,6 @@ def remove_bad_data(data, error, data_sets):
                 data[i][j] = None
         if row_is_empty(data, i, data_sets):
             del data[i]
-
-def row_is_empty(data, row, data_sets):
-    for j in range(3, data_sets + 3):
-        if data[row][j] is not None:
-            return False
-    return True
 
 # Polynomial background fit
 def bg_fit(data, data_sets, deg):
@@ -77,7 +82,7 @@ def residual_fit(data, data_sets):
         fit.append(sp.optimize.curve_fit(func, x_vals, data[i]))
     return fit
 
-def residual_filter(data, data_sets, fit):
+def residual_filter(data, fit, data_sets):
     for i in range(len(data)):
         for j in range(data_sets):
             data[i][j] -= func(j, fit[i][0][0], fit[i][0][1])
@@ -111,18 +116,6 @@ def fast_fourier_transform(data):
         fft.append(np.fft.fft(i))
     return fft
 
-def graph_fft(fft, data_sets, freq):
-    fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
-    for i in range(len(fr)):
-        if fr[i] is not 0:
-            fr[i] = 1 / fr[i]
-
-    for i in range(len(fft)):
-        normalized = abs(fft[i][0:int(data_sets/2)])
-
-        plt.plot(fr, normalized)
-        plt.show()
-
 def get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation, data_sets):
     magnitude = []
     direction = []
@@ -144,11 +137,91 @@ def get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation
         direction.append(temp_direction)
     return magnitude, direction
 
-def generate_altitudes_list(min, max, step):
-    altitudes = []
-    for i in range(int(((max - min) / step) + 1)):
-        altitudes.append(min + i * step)
-    return altitudes
+def display_data(data, altitudes, time):
+    for i in range(len(altitudes)):
+        fig, ax = plt.subplots()
+        print(time)
+        print(len(time))
+        print(len(data[i]))
+        plt.scatter(time, data[i], 25)
+        plt.title("Temperature at " + str(altitudes[i]) + "km")
+        plt.xlabel("Time (hours)")
+        plt.ylabel("Temperature Perturbation (K)")
+        every_nth = 1
+        for n, label in enumerate(ax.xaxis.get_ticklabels()):
+            if n % every_nth != 0:
+                label.set_visible(False)
+        for n, label in enumerate(ax.yaxis.get_ticklabels()):
+            if n % every_nth != 0:
+                label.set_visible(False)
+        plt.show()
+
+def save_data(data, altitudes, time, filename="", type=""):
+    for i in range(len(altitudes)):
+        fig, ax = plt.subplots()
+        print(time)
+        print(len(time))
+        print(len(data[i]))
+        plt.scatter(time, data[i], 25)
+        #TODO: Clean this up by passing axis labels into function
+        plt.title(type + " at " + str(altitudes[i]) + "km")
+        plt.xlabel("Time (hours)")
+        plt.ylabel(type + " Perturbation")
+        every_nth = 1
+        for n, label in enumerate(ax.xaxis.get_ticklabels()):
+            if n % every_nth != 0:
+                label.set_visible(False)
+        for n, label in enumerate(ax.yaxis.get_ticklabels()):
+            if n % every_nth != 0:
+                label.set_visible(False)
+        plt.savefig("figures/" + str(altitudes[i]) + "km_" + type + ".png")
+
+def display_fft(fft, data_sets, freq):
+    fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
+    for i in range(len(fr)):
+        if fr[i] is not 0:
+            fr[i] = 1 / fr[i]
+    for i in range(len(fft)):
+        normalized = abs(fft[i][0:int(data_sets/2)])
+        plt.clf()
+        plt.plot(fr, normalized)
+        plt.show()
+
+def save_fft(fft, altitudes, data_sets, freq, type="", time=""):
+    fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
+    for i in range(len(fr)):
+        if fr[i] is not 0:
+            fr[i] = 1 / fr[i]
+    for i in range(len(fft)):
+        temp = ""
+        if type is not "":
+            temp = "_" + type.lower()
+        normalized = abs(fft[i][0:int(data_sets/2)])
+        #plt.clf()
+        plt.plot(fr, normalized)
+        plt.title("FFT for " + type + " at " + str(altitudes[i]) + "km")
+        plt.savefig("figures/" + str(altitudes[i]) + "km_fft_" + temp + time + ".png")
+        plt.close()
+
+def display_hodograph(east_wind, north_wind, altitudes):
+    for i in range(len(altitudes)):
+        hodograph = metplt.Hodograph(component_range=25)
+        hodograph.add_grid(increment=1.5)
+        hodograph.plot(east_wind[i], north_wind[i])
+        #plt.clf()
+        plt.title("Wind at " + str(altitudes[i]) + "km")
+        plt.show()
+
+def save_hodograph(east_wind, north_wind, altitudes, type=""):
+    if type is not "":
+        type = "_" + type.lower()
+    for i in range(len(altitudes)):
+        hodograph = metplt.Hodograph(component_range=25)
+        hodograph.add_grid(increment=1.5)
+        hodograph.plot(east_wind[i], north_wind[i])
+        plt.title("Wind at " + str(altitudes[i]) + "km")
+        plt.savefig("figures/" + str(altitudes[i]) + "km_hodograph_" + type + ".png")
+        plt.close()
 
 # This function is not currently being used
 def linear_bg_filter(data, data_sets):
@@ -160,12 +233,6 @@ def linear_bg_filter(data, data_sets):
 			r += data[i][j]
 		l /= (data_sets / 2)
 		r /= (data_sets / 2)
-			
-def get_num_data_sets_t(data):
-    return int((len(data[0]) - 5) / 3)
-
-def get_num_data_sets_w(data):
-    return int((len(data[0]) - 4) / 2)
 
 # Returns column at index with None values omitted
 def get_column(data, index):
@@ -182,6 +249,18 @@ def get_altitude_column(data, index):
         if data[row][index] is not None:
             altitudes.append(data[row][0])
     return altitudes
+
+def generate_altitudes_list(min, max, step):
+    altitudes = []
+    for i in range(int(((max - min) / step) + 1)):
+        altitudes.append(min + i * step)
+    return altitudes
+
+def row_is_empty(data, row, data_sets):
+    for j in range(3, data_sets + 3):
+        if data[row][j] is not None:
+            return False
+    return True
 
 def angle_correction(north, east):
     if (north >= 0 and east >= 0):
