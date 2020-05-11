@@ -34,10 +34,8 @@ def get_num_data_sets_w(data):
 
 def generate_time_axis(time_interval, data_sets):
     time = list(range(data_sets))
-    print(len(time))
     for i in range(len(time)):
         time[i] *= time_interval
-    print(len(time))
     return time
 
 def scale_data(data, scale):
@@ -75,21 +73,30 @@ def median_filter(data, k):
     for i in range(len(data)):
         data[i] = sp.signal.medfilt(data[i], k)
 
-def residual_fit(data, data_sets):
+def first_residual_fit(data, time, data_sets):
     fit = []
-    x_vals = list(range(data_sets))
     for i in range(len(data)):
-        fit.append(sp.optimize.curve_fit(func, x_vals, data[i]))
+        fit.append(sp.optimize.curve_fit(first_residual_function, time, data[i]))
     return fit
+            
+def first_residual_function(t, A, B):
+    w = 2 * np.pi / (12 * 4)
+    return A * np.sin(w * t) + B * np.cos(w * t)
+
+def second_residual_fit(data, time, data_sets):
+    fit = []
+    for i in range(len(data)):
+        fit.append(sp.optimize.curve_fit(second_residual_function, time, data[i]))
+    return fit
+
+def second_residual_function(t, A, B):
+    w = 2 * np.pi / (3 * 4)
+    return A * np.sin(w * t) + B * np.cos(w * t)
 
 def residual_filter(data, fit, data_sets):
     for i in range(len(data)):
         for j in range(data_sets):
-            data[i][j] -= func(j, fit[i][0][0], fit[i][0][1])
-            
-def func(t, A, B):
-    w = 2 * np.pi / (12 * 4)
-    return A * np.sin(w * t) + B * np.cos(w * t)
+            data[i][j] -= first_residual_function(j, fit[i][0][0], fit[i][0][1])
 
 def linear_interpolation(data, data_sets):
     interpolation = []
@@ -137,16 +144,18 @@ def get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation
         direction.append(temp_direction)
     return magnitude, direction
 
-def display_data(data, altitudes, time):
+def display_data(altitudes, data, time, fitted_line=None, title=None, xlabel=None, ylabel=None):
     for i in range(len(altitudes)):
         fig, ax = plt.subplots()
-        print(time)
-        print(len(time))
-        print(len(data[i]))
         plt.scatter(time, data[i], 25)
-        plt.title("Temperature at " + str(altitudes[i]) + "km")
-        plt.xlabel("Time (hours)")
-        plt.ylabel("Temperature Perturbation (K)")
+        if fitted_line is not None:
+            plt.plot(time, fitted_line)
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        #"Temperature at " + str(altitudes[i]) + "km"
+        #"Time (hours)"
+        #"Temperature Perturbation (K)"
         every_nth = 1
         for n, label in enumerate(ax.xaxis.get_ticklabels()):
             if n % every_nth != 0:
@@ -156,17 +165,14 @@ def display_data(data, altitudes, time):
                 label.set_visible(False)
         plt.show()
 
-def save_data(data, altitudes, time, filename="", type=""):
+def save_data(altitudes, data, time, fitted_line=None, title="", xlabel="", ylabel="", folder="", filename=""):
     for i in range(len(altitudes)):
         fig, ax = plt.subplots()
-        print(time)
-        print(len(time))
-        print(len(data[i]))
         plt.scatter(time, data[i], 25)
         #TODO: Clean this up by passing axis labels into function
-        plt.title(type + " at " + str(altitudes[i]) + "km")
-        plt.xlabel("Time (hours)")
-        plt.ylabel(type + " Perturbation")
+        plt.title(title + " at " + str(altitudes[i]) + "km")
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
         every_nth = 1
         for n, label in enumerate(ax.xaxis.get_ticklabels()):
             if n % every_nth != 0:
@@ -174,7 +180,8 @@ def save_data(data, altitudes, time, filename="", type=""):
         for n, label in enumerate(ax.yaxis.get_ticklabels()):
             if n % every_nth != 0:
                 label.set_visible(False)
-        plt.savefig("figures/" + str(altitudes[i]) + "km_" + type + ".png")
+        plt.savefig(folder + str(altitudes[i]) + "km_" + filename + ".png")
+        plt.close()
 
 def display_fft(fft, data_sets, freq):
     fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
@@ -183,44 +190,38 @@ def display_fft(fft, data_sets, freq):
             fr[i] = 1 / fr[i]
     for i in range(len(fft)):
         normalized = abs(fft[i][0:int(data_sets/2)])
-        plt.clf()
         plt.plot(fr, normalized)
         plt.show()
 
-def save_fft(fft, altitudes, data_sets, freq, type="", time=""):
+def save_fft(fft, altitudes, data_sets, freq, title="", folder="", filename=""):
     fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
     for i in range(len(fr)):
         if fr[i] is not 0:
             fr[i] = 1 / fr[i]
     for i in range(len(fft)):
-        temp = ""
-        if type is not "":
-            temp = "_" + type.lower()
         normalized = abs(fft[i][0:int(data_sets/2)])
-        #plt.clf()
         plt.plot(fr, normalized)
-        plt.title("FFT for " + type + " at " + str(altitudes[i]) + "km")
-        plt.savefig("figures/" + str(altitudes[i]) + "km_fft_" + temp + time + ".png")
+        plt.title(title + " at " + str(altitudes[i]) + "km")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Signal Intensity")
+        plt.savefig(folder + str(altitudes[i]) + "km_" + filename + ".png")
         plt.close()
 
-def display_hodograph(east_wind, north_wind, altitudes):
+def display_hodograph(altitudes, east_wind, north_wind, title=""):
     for i in range(len(altitudes)):
         hodograph = metplt.Hodograph(component_range=25)
         hodograph.add_grid(increment=1.5)
         hodograph.plot(east_wind[i], north_wind[i])
-        #plt.clf()
-        plt.title("Wind at " + str(altitudes[i]) + "km")
+        plt.title(title + " at " + str(altitudes[i]) + "km")
         plt.show()
 
-def save_hodograph(east_wind, north_wind, altitudes, type=""):
-    if type is not "":
-        type = "_" + type.lower()
+def save_hodograph(altitudes, east_wind, north_wind, title="", folder="", filename=""):
     for i in range(len(altitudes)):
-        hodograph = metplt.Hodograph(component_range=25)
-        hodograph.add_grid(increment=1.5)
+        hodograph = metplt.Hodograph(component_range=40)
+        hodograph.add_grid(increment=5)
         hodograph.plot(east_wind[i], north_wind[i])
-        plt.title("Wind at " + str(altitudes[i]) + "km")
-        plt.savefig("figures/" + str(altitudes[i]) + "km_hodograph_" + type + ".png")
+        plt.title(title + " at " + str(altitudes[i]) + "km")
+        plt.savefig(folder + str(altitudes[i]) + "km_" + filename + ".png")
         plt.close()
 
 # This function is not currently being used
