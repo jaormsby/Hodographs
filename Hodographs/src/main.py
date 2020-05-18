@@ -1,4 +1,5 @@
 import src.data_tools as dt
+import src.gw_eqns as gwe
 
 import math
 import matplotlib.pyplot as plt
@@ -9,6 +10,9 @@ import scipy as sp
 import scipy.interpolate
 import scipy.optimize
 import scipy.signal
+import statistics as stats
+
+saveGraphs = False
 
 # Extract data from files
 temperature = dt.extract_data("data/high_resolution/Tint18251_31_nw4sg4nFnC") 
@@ -26,13 +30,13 @@ time_interval = 0.25
 time_axis = dt.generate_time_axis(time_interval, data_sets)
 
 # Generate list of altitudes of interest
-min, max, step = 85.0, 105.0, 1.0   
+min, max, step = 85.0, 100.0, 1.0   
 altitudes = dt.generate_altitudes_list(min, max, step)
 
 # Initialize data set size trackers
-#temperature_data_sets = [data_sets] * len(temperature)
-#north_wind_data_sets = [data_sets] * len(north_wind)
-#east_wind_data_sets = [data_sets] * len(east_wind)
+temperature_data_sets = [data_sets] * len(temperature)
+north_wind_data_sets = [data_sets] * len(north_wind)
+east_wind_data_sets = [data_sets] * len(east_wind)
 
 # Remove data which exceeds maximum percent error
 max_error = 0.05 # Maximum percent error
@@ -66,16 +70,19 @@ temperature = dt.reconstruct_data(altitudes, temperature_interpolation, data_set
 north_wind = dt.reconstruct_data(altitudes, north_wind_interpolation, data_sets)
 east_wind = dt.reconstruct_data(altitudes, east_wind_interpolation, data_sets)
 
+# Find dT / dz
+dTdz = dt.get_dTdz(altitudes, temperature, data_sets)
+
 # Apply median filter to data to remove outliers
 dt.median_filter(temperature, 3)
 dt.median_filter(north_wind, 3)
 dt.median_filter(east_wind, 3)
 
-# Save data graphs
-#fitted_line=None, title="", xlabel="", ylabel="", folder="", filename=""
-dt.save_data(altitudes, temperature, time_axis, title="Temperature Perturbation", xlabel="Time (hours)", ylabel="Temperature (K)", folder="figures/TempPerturb/", filename="TempPerturb")
-dt.save_data(altitudes, north_wind, time_axis, title="North Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/NorthWindPerturb/", filename="NorthWindPerturb")
-dt.save_data(altitudes, east_wind, time_axis, title="East Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/EastWindPerturb/", filename="EastWindPerturb")
+#if saveGraphs:
+#    # Save data graphs
+#    dt.save_data(altitudes, temperature, time_axis, title="Temperature Perturbation", xlabel="Time (hours)", ylabel="Temperature (K)", folder="figures/TempPerturb/", filename="TempPerturb")
+#    dt.save_data(altitudes, north_wind, time_axis, title="North Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/NorthWindPerturb/", filename="NorthWindPerturb")
+#    dt.save_data(altitudes, east_wind, time_axis, title="East Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/EastWindPerturb/", filename="EastWindPerturb")
 
 # Apply FFT to data
 temperature_fft = dt.fast_fourier_transform(temperature)
@@ -84,14 +91,15 @@ east_wind_fft = dt.fast_fourier_transform(east_wind)
 
 # Graph FFTs
 freq = 1/900
-#dt.graph_fft(temperature_fft, data_sets, freq)
-#dt.graph_fft(north_wind_fft, data_sets, freq)
-#dt.graph_fft(east_wind_fft, data_sets, freq)
+#dt.display_fft(temperature_fft, altitudes, data_sets, freq, title="Temperature)
+#dt.display_fft(north_wind_fft, altitudes, data_sets, freq, title="North Wind")
+#dt.display_fft(east_wind_fft, altitudes, data_sets, freq, title="East Wind")
 
-## Save FFT graphs
-dt.save_fft(temperature_fft, altitudes, data_sets, freq, title="Temperature", folder="figures/TempFFT/", filename="TempFFT1")
-dt.save_fft(north_wind_fft, altitudes, data_sets, freq, title="North Wind", folder="figures/NorthWindFFT/", filename="NorthWindFFT1")
-dt.save_fft(east_wind_fft, altitudes, data_sets, freq, title="East Wind", folder="figures/EastWindFFT/", filename="EastWindFFT1")
+if saveGraphs:
+    ## Save FFT graphs
+    dt.save_fft(temperature_fft, altitudes, data_sets, freq, title="Temperature", folder="figures/TempFFT/", filename="TempFFT1")
+    dt.save_fft(north_wind_fft, altitudes, data_sets, freq, title="North Wind", folder="figures/NorthWindFFT/", filename="NorthWindFFT1")
+    dt.save_fft(east_wind_fft, altitudes, data_sets, freq, title="East Wind", folder="figures/EastWindFFT/", filename="EastWindFFT1")
 
 # Apply sin/cos residual fit to find first residual
 temperature_resid_1 = dt.first_residual_fit(temperature, time_axis, data_sets)
@@ -108,27 +116,49 @@ temperature_resid_2 = dt.second_residual_fit(temperature, time_axis, data_sets)
 north_wind_resid_2 = dt.second_residual_fit(north_wind, time_axis, data_sets)
 east_wind_resid_2 = dt.second_residual_fit(east_wind, time_axis, data_sets)
 
+if saveGraphs:
+    # Save data graphs
+    temp_fit = []
+    north_fit = []
+    east_fit = []
+    for i in range(len(altitudes)):
+        tf = []
+        nf = []
+        ef = []
+        for j in range(int(data_sets * time_interval)):
+            tf.append(dt.first_residual_function(j, temperature_resid_1[i][0][0], temperature_resid_1[i][0][1]))
+            nf.append(dt.first_residual_function(j, north_wind_resid_1[i][0][0], north_wind_resid_1[i][0][1]))
+            ef.append(dt.first_residual_function(j, east_wind_resid_1[i][0][0], east_wind_resid_1[i][0][1]))
+        temp_fit.append(tf)
+        north_fit.append(nf)
+        east_fit.append(ef)
+        
+    dt.save_data(altitudes, temperature, time_axis, fitted_line=temp_fit, title="Temperature Perturbation", xlabel="Time (hours)", ylabel="Temperature (K)", folder="figures/TempPerturb/", filename="TempPerturb")
+    dt.save_data(altitudes, north_wind, time_axis, fitted_line=north_fit, title="North Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/NorthWindPerturb/", filename="NorthWindPerturb")
+    dt.save_data(altitudes, east_wind, time_axis, fitted_line=east_fit, title="East Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/EastWindPerturb/", filename="EastWindPerturb")
+
 # Apply FFT to data
 temperature_fft = dt.fast_fourier_transform(temperature)
 north_wind_fft = dt.fast_fourier_transform(north_wind)
 east_wind_fft = dt.fast_fourier_transform(east_wind)
 
 # Graph FFTs
-freq = 1/900
-#dt.graph_fft(temperature_fft, data_sets, freq)
-#dt.graph_fft(north_wind_fft, data_sets, freq)
-#dt.graph_fft(east_wind_fft, data_sets, freq)
+#dt.display_fft(temperature_fft, altitudes, data_sets, freq, title="Temperature")
+#dt.display_fft(north_wind_fft, altitudes, data_sets, freq, title="North Wind")
+#dt.display_fft(east_wind_fft, altitudes, data_sets, freq, title="East Wind")
 
-# Save FFT graphs
-dt.save_fft(temperature_fft, altitudes, data_sets, freq, title="Temperature", folder="figures/TempFFT/", filename="TempFFT2")
-dt.save_fft(north_wind_fft, altitudes, data_sets, freq, title="North Wind", folder="figures/NorthWindFFT/", filename="NorthWindFFT2")
-dt.save_fft(east_wind_fft, altitudes, data_sets, freq, title="East Wind", folder="figures/EastWindFFT/", filename="EastWindFFT2")
+if saveGraphs:
+    # Save FFT graphs
+    dt.save_fft(temperature_fft, altitudes, data_sets, freq, title="Temperature", folder="figures/TempFFT/", filename="TempFFT2")
+    dt.save_fft(north_wind_fft, altitudes, data_sets, freq, title="North Wind", folder="figures/NorthWindFFT/", filename="NorthWindFFT2")
+    dt.save_fft(east_wind_fft, altitudes, data_sets, freq, title="East Wind", folder="figures/EastWindFFT/", filename="EastWindFFT2")
 
 # Graph wind hodographs
 # dt.display_hodograph(east_wind, north_wind, altitudes)
 
-# Save wind hodographs
-dt.save_hodograph(altitudes, east_wind, north_wind, title="Wind", folder="figures/HodographRaw/", filename="RawWindData")
+if saveGraphs:
+    # Save wind hodographs
+    dt.save_hodograph(altitudes, east_wind, north_wind, title="Wind", folder="figures/HodographRaw/", filename="RawWindData")
 
 # Find Planar Wind
 planar_wind_magnitude, planar_wind_direction = dt.get_planar_wind(altitudes, north_wind_interpolation, east_wind_interpolation, data_sets)
@@ -151,4 +181,46 @@ for i in range(len(altitudes)):
     new_north.append(nn)
     new_east.append(ne)
 
-dt.save_hodograph(altitudes, new_east, new_north, title="Wind", folder="figures/HodographFitted/", filename="FittedWindData")
+if saveGraphs:
+    # Save fitted wind hodographs
+    dt.save_hodograph(altitudes, new_east, new_north, title="Wind", folder="figures/HodographFitted/", filename="FittedWindData")
+
+# Crunch the numbers
+f = 0.34
+m = 5.5
+phase_diffs = gwe.get_phase_differences(altitudes, north_wind_resid_1, east_wind_resid_1, data_sets)
+phi_uv = gwe.get_phi_uv(altitudes, new_north, new_east, phase_diffs, data_sets)
+xi_list = gwe.get_xi(altitudes, new_north, new_east, phi_uv, data_sets)
+u_parallel = gwe.get_u_parallel(altitudes, new_north, new_east, phi_uv, data_sets)
+u_perpendicular = gwe.get_u_perpendicular(altitudes, new_north, new_east, phi_uv, data_sets)
+omega = gwe.get_omega(altitudes, u_parallel, u_perpendicular, data_sets, f)
+N2 = gwe.get_N2(altitudes, temperature, dTdz, data_sets)
+k = gwe.get_k(altitudes, omega, N2, data_sets, f, m)
+
+omega_avg = dt.get_2d_list_average(omega)
+k_avg = dt.get_2d_list_average(k)
+
+c_parallel = omega_avg / k_avg
+c_z = omega_avg / m
+xi_avg = dt.get_2d_list_average(xi_list)
+
+u_para = dt.get_2d_list_average(u_parallel)
+u_perp = dt.get_2d_list_average(u_perpendicular)
+
+print("\nOmega:")
+print(omega_avg)
+
+print("\nWave number:")
+print(k_avg)
+
+print("\nHorizontal direction:")
+print(xi_avg)
+
+print("\nHorizontal magnitude:")
+print(c_parallel)
+
+print("\nu_parallel:")
+print(u_para)
+
+print("\nu_perpendicular:")
+print(u_perp)

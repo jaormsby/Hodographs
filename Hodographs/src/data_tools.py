@@ -1,3 +1,5 @@
+import src.gw_eqns as gwe
+
 import math
 import matplotlib.pyplot as plt
 import metpy.plots as metplt
@@ -7,6 +9,7 @@ import scipy as sp
 import scipy.interpolate
 import scipy.optimize
 import scipy.signal
+import statistics as stats
 
 def extract_data(filename):
     with open(filename) as infile:
@@ -80,7 +83,7 @@ def first_residual_fit(data, time, data_sets):
     return fit
             
 def first_residual_function(t, A, B):
-    w = 2 * np.pi / (12 * 4)
+    w = 2 * np.pi / 12
     return A * np.sin(w * t) + B * np.cos(w * t)
 
 def second_residual_fit(data, time, data_sets):
@@ -90,7 +93,7 @@ def second_residual_fit(data, time, data_sets):
     return fit
 
 def second_residual_function(t, A, B):
-    w = 2 * np.pi / (3 * 4)
+    w = 2 * np.pi / 3
     return A * np.sin(w * t) + B * np.cos(w * t)
 
 def residual_filter(data, fit, data_sets):
@@ -149,13 +152,10 @@ def display_data(altitudes, data, time, fitted_line=None, title=None, xlabel=Non
         fig, ax = plt.subplots()
         plt.scatter(time, data[i], 25)
         if fitted_line is not None:
-            plt.plot(time, fitted_line)
+            plt.plot(time, fitted_line[i])
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        #"Temperature at " + str(altitudes[i]) + "km"
-        #"Time (hours)"
-        #"Temperature Perturbation (K)"
         every_nth = 1
         for n, label in enumerate(ax.xaxis.get_ticklabels()):
             if n % every_nth != 0:
@@ -169,7 +169,8 @@ def save_data(altitudes, data, time, fitted_line=None, title="", xlabel="", ylab
     for i in range(len(altitudes)):
         fig, ax = plt.subplots()
         plt.scatter(time, data[i], 25)
-        #TODO: Clean this up by passing axis labels into function
+        if fitted_line is not None:
+            plt.plot(list(range(len(fitted_line[i]))), fitted_line[i])
         plt.title(title + " at " + str(altitudes[i]) + "km")
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
@@ -183,13 +184,16 @@ def save_data(altitudes, data, time, fitted_line=None, title="", xlabel="", ylab
         plt.savefig(folder + str(altitudes[i]) + "km_" + filename + ".png")
         plt.close()
 
-def display_fft(fft, data_sets, freq):
+def display_fft(fft, altitudes, data_sets, freq, title=""):
     fr = (freq / 2) * np.linspace(0, 1, data_sets / 2)
     for i in range(len(fr)):
         if fr[i] is not 0:
             fr[i] = 1 / fr[i]
     for i in range(len(fft)):
         normalized = abs(fft[i][0:int(data_sets/2)])
+        plt.title(title + " at " + str(altitudes[i]) + "km")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Signal Intensity")
         plt.plot(fr, normalized)
         plt.show()
 
@@ -224,17 +228,6 @@ def save_hodograph(altitudes, east_wind, north_wind, title="", folder="", filena
         plt.savefig(folder + str(altitudes[i]) + "km_" + filename + ".png")
         plt.close()
 
-# This function is not currently being used
-def linear_bg_filter(data, data_sets):
-	for i in range(0, len(data)):
-		l, r = 0.0
-		for j in range(3, data_sets / 2):
-			l += data[i][j]
-		for j in range (3 + data_sets / 2, data_sets):
-			r += data[i][j]
-		l /= (data_sets / 2)
-		r /= (data_sets / 2)
-
 # Returns column at index with None values omitted
 def get_column(data, index):
     column = []
@@ -262,6 +255,12 @@ def row_is_empty(data, row, data_sets):
         if data[row][j] is not None:
             return False
     return True
+
+def get_2d_list_average(data):
+    avgs = []
+    for i in range(len(data)):
+        avgs.append(stats.mean(data[i]))
+    return stats.mean(avgs)
 
 def angle_correction(north, east):
     if (north >= 0 and east >= 0):
