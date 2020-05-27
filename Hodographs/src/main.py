@@ -12,7 +12,7 @@ import scipy.optimize
 import scipy.signal
 import statistics as stats
 
-saveGraphs = True
+saveGraphs = False
 
 # Extract data from files
 temperature = dt.extract_data("data/high_resolution/Tint18251_31_nw4sg4nFnC") 
@@ -116,9 +116,9 @@ if saveGraphs:
         nf = []
         ef = []
         for j in range(int(data_sets * time_interval)):
-            tf.append(dt.first_residual_function(j, temperature_resid_1[i][0][0], temperature_resid_1[i][0][1], temperature_resid_1[i][0][2], temperature_resid_1[i][0][3]))
-            nf.append(dt.first_residual_function(j, north_wind_resid_1[i][0][0], north_wind_resid_1[i][0][1], north_wind_resid_1[i][0][2], north_wind_resid_1[i][0][3]))
-            ef.append(dt.first_residual_function(j, east_wind_resid_1[i][0][0], east_wind_resid_1[i][0][1], east_wind_resid_1[i][0][2], east_wind_resid_1[i][0][3]))
+            tf.append(dt.first_residual_function(j, temperature_resid_1[i][0][0], temperature_resid_1[i][0][1]))
+            nf.append(dt.first_residual_function(j, north_wind_resid_1[i][0][0], north_wind_resid_1[i][0][1]))
+            ef.append(dt.first_residual_function(j, east_wind_resid_1[i][0][0], east_wind_resid_1[i][0][1]))
         temp_fit.append(tf)
         north_fit.append(nf)
         east_fit.append(ef)

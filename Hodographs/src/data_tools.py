@@ -83,9 +83,9 @@ def first_residual_fit(data, time, data_sets):
     return fit
             
 # Combine residual functions
-def first_residual_function(t, A, B, C, D):
+def first_residual_function(t, A, B):
     w = 2 * np.pi / 12
-    return A * np.sin(w * t) + B * np.cos(w * t) + C * np.sin(0.5 * w * t) + D * np.cos(0.5 * w * t)
+    return A * np.sin(w * t) + B * np.cos(w * t)
 
 def second_residual_fit(data, time, data_sets): 
     fit = []
@@ -97,20 +97,10 @@ def second_residual_function(t, A, B):
     w = 2 * np.pi / 3
     return A * np.sin(w * t) + B * np.cos(w * t)
 
-#def new_residual_fit(data, time, data_sets):
-#    fit = []
-#    for i in range(len(data)):
-#        fit.append(sp.optimize.curve_fit(second_residual_function, time, data[i]))
-#    return fit
-
-#def new_residual_function(t, A, B):
-#    w = 2 * np.pi / 6
-#    return A * np.sin(w * t) + B * np.cos(w * t)
-
 def first_residual_filter(data, fit, data_sets):
     for i in range(len(data)):
         for j in range(data_sets):
-            data[i][j] -= first_residual_function(j, fit[i][0][0], fit[i][0][1], fit[i][0][2], fit[i][0][3])
+            data[i][j] -= first_residual_function(j, fit[i][0][0], fit[i][0][1])
 
 def second_residual_filter(data, fit, data_sets):
     for i in range(len(data)):
