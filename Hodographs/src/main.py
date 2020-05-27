@@ -12,7 +12,7 @@ import scipy.optimize
 import scipy.signal
 import statistics as stats
 
-saveGraphs = False
+saveGraphs = True
 
 # Extract data from files
 temperature = dt.extract_data("data/high_resolution/Tint18251_31_nw4sg4nFnC") 
@@ -71,18 +71,18 @@ north_wind = dt.reconstruct_data(altitudes, north_wind_interpolation, data_sets)
 east_wind = dt.reconstruct_data(altitudes, east_wind_interpolation, data_sets)
 
 # Find dT / dz
-dTdz = dt.get_dTdz(altitudes, temperature, data_sets)
+dTdz = gwe.get_dTdz(altitudes, temperature, data_sets)
 
 # Apply median filter to data to remove outliers
 dt.median_filter(temperature, 3)
 dt.median_filter(north_wind, 3)
 dt.median_filter(east_wind, 3)
 
-#if saveGraphs:
-#    # Save data graphs
-#    dt.save_data(altitudes, temperature, time_axis, title="Temperature Perturbation", xlabel="Time (hours)", ylabel="Temperature (K)", folder="figures/TempPerturb/", filename="TempPerturb")
-#    dt.save_data(altitudes, north_wind, time_axis, title="North Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/NorthWindPerturb/", filename="NorthWindPerturb")
-#    dt.save_data(altitudes, east_wind, time_axis, title="East Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/EastWindPerturb/", filename="EastWindPerturb")
+if saveGraphs:
+    # Save data graphs
+    dt.save_data(altitudes, temperature, time_axis, title="Temperature Perturbation", xlabel="Time (hours)", ylabel="Temperature (K)", folder="figures/TempPerturb/", filename="TempPerturb")
+    dt.save_data(altitudes, north_wind, time_axis, title="North Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/NorthWindPerturb/", filename="NorthWindPerturb")
+    dt.save_data(altitudes, east_wind, time_axis, title="East Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/EastWindPerturb/", filename="EastWindPerturb")
 
 # Apply FFT to data
 temperature_fft = dt.fast_fourier_transform(temperature)
@@ -106,16 +106,6 @@ temperature_resid_1 = dt.first_residual_fit(temperature, time_axis, data_sets)
 north_wind_resid_1 = dt.first_residual_fit(north_wind, time_axis, data_sets)
 east_wind_resid_1 = dt.first_residual_fit(east_wind, time_axis, data_sets)
 
-# Subtract residual fit from data at each altitude
-dt.residual_filter(temperature, temperature_resid_1, data_sets)
-dt.residual_filter(north_wind, north_wind_resid_1, data_sets)
-dt.residual_filter(east_wind, east_wind_resid_1, data_sets)
-
-# Apply sin/cos residual fit to find second residual
-temperature_resid_2 = dt.second_residual_fit(temperature, time_axis, data_sets)
-north_wind_resid_2 = dt.second_residual_fit(north_wind, time_axis, data_sets)
-east_wind_resid_2 = dt.second_residual_fit(east_wind, time_axis, data_sets)
-
 if saveGraphs:
     # Save data graphs
     temp_fit = []
@@ -126,9 +116,9 @@ if saveGraphs:
         nf = []
         ef = []
         for j in range(int(data_sets * time_interval)):
-            tf.append(dt.first_residual_function(j, temperature_resid_1[i][0][0], temperature_resid_1[i][0][1]))
-            nf.append(dt.first_residual_function(j, north_wind_resid_1[i][0][0], north_wind_resid_1[i][0][1]))
-            ef.append(dt.first_residual_function(j, east_wind_resid_1[i][0][0], east_wind_resid_1[i][0][1]))
+            tf.append(dt.first_residual_function(j, temperature_resid_1[i][0][0], temperature_resid_1[i][0][1], temperature_resid_1[i][0][2], temperature_resid_1[i][0][3]))
+            nf.append(dt.first_residual_function(j, north_wind_resid_1[i][0][0], north_wind_resid_1[i][0][1], north_wind_resid_1[i][0][2], north_wind_resid_1[i][0][3]))
+            ef.append(dt.first_residual_function(j, east_wind_resid_1[i][0][0], east_wind_resid_1[i][0][1], east_wind_resid_1[i][0][2], east_wind_resid_1[i][0][3]))
         temp_fit.append(tf)
         north_fit.append(nf)
         east_fit.append(ef)
@@ -136,6 +126,16 @@ if saveGraphs:
     dt.save_data(altitudes, temperature, time_axis, fitted_line=temp_fit, title="Temperature Perturbation", xlabel="Time (hours)", ylabel="Temperature (K)", folder="figures/TempPerturb/", filename="TempPerturb")
     dt.save_data(altitudes, north_wind, time_axis, fitted_line=north_fit, title="North Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/NorthWindPerturb/", filename="NorthWindPerturb")
     dt.save_data(altitudes, east_wind, time_axis, fitted_line=east_fit, title="East Wind Perturbation", xlabel="Time (hours)", ylabel="Speed (m/s)", folder="figures/EastWindPerturb/", filename="EastWindPerturb")
+
+# Subtract residual fit from data at each altitude
+dt.first_residual_filter(temperature, temperature_resid_1, data_sets)
+dt.first_residual_filter(north_wind, north_wind_resid_1, data_sets)
+dt.first_residual_filter(east_wind, east_wind_resid_1, data_sets)
+
+# Apply sin/cos residual fit to find second residual
+temperature_resid_2 = dt.second_residual_fit(temperature, time_axis, data_sets)
+north_wind_resid_2 = dt.second_residual_fit(north_wind, time_axis, data_sets)
+east_wind_resid_2 = dt.second_residual_fit(east_wind, time_axis, data_sets)
 
 # Apply FFT to data
 temperature_fft = dt.fast_fourier_transform(temperature)
@@ -176,8 +176,8 @@ for i in range(len(altitudes)):
     nn = []
     ne = []
     for j in range(data_sets):
-        nn.append(dt.first_residual_function(j, north_wind_resid_2[i][0][0], north_wind_resid_2[i][0][1]))
-        ne.append(dt.first_residual_function(j, east_wind_resid_2[i][0][0], east_wind_resid_2[i][0][1]))
+        nn.append(dt.second_residual_function(j, north_wind_resid_2[i][0][0], north_wind_resid_2[i][0][1]))
+        ne.append(dt.second_residual_function(j, east_wind_resid_2[i][0][0], east_wind_resid_2[i][0][1]))
     new_north.append(nn)
     new_east.append(ne)
 
@@ -185,42 +185,58 @@ if saveGraphs:
     # Save fitted wind hodographs
     dt.save_hodograph(altitudes, new_east, new_north, title="Wind", folder="figures/HodographFitted/", filename="FittedWindData")
 
+dTdz = -0.96526
 # Crunch the numbers
-f = 0.34
-m = 5.5
+f = 0.055
+m = 1 / 7.0
 phase_diffs = gwe.get_phase_differences(altitudes, north_wind_resid_1, east_wind_resid_1, data_sets)
 phi_uv = gwe.get_phi_uv(altitudes, new_north, new_east, phase_diffs, data_sets)
 xi_list = gwe.get_xi(altitudes, new_north, new_east, phi_uv, data_sets)
-u_parallel = gwe.get_u_parallel(altitudes, new_north, new_east, phi_uv, data_sets)
-u_perpendicular = gwe.get_u_perpendicular(altitudes, new_north, new_east, phi_uv, data_sets)
-omega = gwe.get_omega(altitudes, u_parallel, u_perpendicular, data_sets, f)
+u_para2 = gwe.get_2u_parallel2(altitudes, new_north, new_east, phi_uv, data_sets)
+u_perp2 = gwe.get_2u_perpendicular2(altitudes, new_north, new_east, phi_uv, data_sets)
+w2 = gwe.get_w2(altitudes, u_para2, u_perp2, data_sets, f)
 N2 = gwe.get_N2(altitudes, temperature, dTdz, data_sets)
-k = gwe.get_k(altitudes, omega, N2, data_sets, f, m)
+k2 = gwe.get_k2(altitudes, w2, N2, data_sets, f, m)
 
-omega_avg = dt.get_2d_list_average(omega)
-k_avg = dt.get_2d_list_average(k)
-
-c_parallel = omega_avg / k_avg
-c_z = omega_avg / m
 xi_avg = dt.get_2d_list_average(xi_list)
+u_para2_avg = dt.get_2d_list_average(u_para2) / 2
+u_perp2_avg = dt.get_2d_list_average(u_perp2) / 2
+w2_avg = dt.get_2d_list_average(w2)
+N2_avg = dt.get_2d_list_average(N2)
+k2_avg = dt.get_2d_list_average(k2)
 
-u_para = dt.get_2d_list_average(u_parallel)
-u_perp = dt.get_2d_list_average(u_perpendicular)
+dTdz_km = (1/1000) * dTdz
+xi_rad = math.sqrt(xi_avg)
+xi_deg = (xi_rad * 180) / math.pi
+u_para = math.sqrt(abs(u_para2_avg))
+u_perp = math.sqrt(abs(u_perp2_avg))
+N = math.sqrt(abs(N2_avg))
+k = math.sqrt(abs(k2_avg))
 
-print("\nOmega:")
-print(omega_avg)
+w = math.sqrt(abs(w2_avg))
+L = 1 / k
 
-print("\nWave number:")
-print(k_avg)
+c_parallel = w / k
+c_z = w / m
 
-print("\nHorizontal direction:")
-print(xi_avg)
+print(
+    "\ndTdz:\t\t\t" + str(dTdz) + " K/m\t\t\t" + str(dTdz_km) + " K/km" + 
+    "\nHorizontal direction:\t" + str(xi_rad) + " radians\t" + str(xi_deg) + " degrees" +
+    "\nu_parallel:\t\t" + str(u_para) + " km/h" +
+    "\nu_perpendicular:\t" + str(u_perp) + " km/h" +
+    "\nBuoyancy frequency:\t" + str(N) + " /h" +
+    "\nWave number:\t\t" + str(k) + " /km" +
+    "\nIntrinsic frequency:\t" + str(w) + " /h" +
+    "\nHorizontal wavelength:\t" + str(L) + " km" +
+    "\nHorizontal phase speed:\t" + str(c_parallel) + " km/h" +
+    "\nVertical phase speed:\t" + str(c_z) + " km/h"
+    )
 
-print("\nHorizontal magnitude:")
-print(c_parallel)
+horizontal_wind = dt.get_2d_list_average(planar_wind_magnitude)
+print(horizontal_wind)
 
-print("\nu_parallel:")
-print(u_para)
+zonal = dt.get_2d_list_average(east_wind)
+print(zonal)
 
-print("\nu_perpendicular:")
-print(u_perp)
+meridional = dt.get_2d_list_average(north_wind)
+print(meridional)
